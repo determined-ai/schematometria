@@ -8,4 +8,4 @@ c AS (
 )
 ```
 
-is the problematic part
+is the problematic part? `get_model_versions_after.sql` doesn't seem to resolve though....

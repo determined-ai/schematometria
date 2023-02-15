@@ -25,3 +25,7 @@ ALTER DATABASE postgres RENAME TO determined;
 ```
 
 then remove the syntax error and restart `devcluster`. the new data from the database dump should be reflected in the WebUI.
+
+![this image](why_cant_i_export_this.png) is from gcloud query insights for the release party database and indicates the queries with the highest average time taken (and also the aggregate load from those queries on the db)
+
+it's not dispositive since `get_model_versions.sql` doesn't show up as slow, but is often slow.

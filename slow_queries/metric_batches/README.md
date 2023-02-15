@@ -1,6 +1,8 @@
+This one didn't show up on gcloud query insights but shows up periodically in the #slow-queries logs. I have not been able to reproduce the slowness, but there is a slow query plan [here](slow_plan.json)
+
 MetricBatches calls TrainingMetricBatches and ValidationMetricBatches
 
-TrainingMetricBatche does
+TrainingMetricBatches does
 
 ```
 	err = db.queryRows(`
