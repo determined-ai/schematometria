@@ -1,0 +1,94 @@
+                                                                                                 QUERY PLAN                                                                                                  
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop  (cost=140951.26..141375.95 rows=80 width=284) (actual time=449.762..2407.720 rows=1 loops=1)
+   CTE mv
+     ->  Hash Right Join  (cost=1.55..5.07 rows=1 width=214) (actual time=0.018..0.027 rows=1 loops=1)
+           Hash Cond: (users.id = model_versions.user_id)
+           ->  Seq Scan on users  (cost=0.00..3.10 rows=110 width=14) (actual time=0.001..0.006 rows=110 loops=1)
+           ->  Hash  (cost=1.54..1.54 rows=1 width=204) (actual time=0.005..0.006 rows=1 loops=1)
+                 Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                 ->  Seq Scan on model_versions  (cost=0.00..1.54 rows=1 width=204) (actual time=0.003..0.003 rows=1 loops=1)
+                       Filter: (model_id = 28)
+                       Rows Removed by Filter: 42
+   CTE m
+     ->  GroupAggregate  (cost=6.41..6.43 rows=1 width=207) (actual time=0.105..0.108 rows=1 loops=1)
+           Group Key: m_1.id, u.id
+           ->  Sort  (cost=6.41..6.41 rows=1 width=203) (actual time=0.099..0.101 rows=1 loops=1)
+                 Sort Key: u.id
+                 Sort Method: quicksort  Memory: 25kB
+                 ->  Nested Loop Left Join  (cost=1.45..6.40 rows=1 width=203) (actual time=0.059..0.082 rows=1 loops=1)
+                       Join Filter: (mv_1.model_id = m_1.id)
+                       ->  Hash Join  (cost=1.45..4.85 rows=1 width=199) (actual time=0.047..0.069 rows=1 loops=1)
+                             Hash Cond: (u.id = m_1.user_id)
+                             ->  Seq Scan on users u  (cost=0.00..3.10 rows=110 width=14) (actual time=0.019..0.037 rows=110 loops=1)
+                             ->  Hash  (cost=1.44..1.44 rows=1 width=185) (actual time=0.017..0.017 rows=1 loops=1)
+                                   Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                   ->  Seq Scan on models m_1  (cost=0.00..1.44 rows=1 width=185) (actual time=0.010..0.011 rows=1 loops=1)
+                                         Filter: (id = 28)
+                                         Rows Removed by Filter: 34
+                       ->  Seq Scan on model_versions mv_1  (cost=0.00..1.54 rows=1 width=8) (actual time=0.011..0.012 rows=1 loops=1)
+                             Filter: (model_id = 28)
+                             Rows Removed by Filter: 42
+   CTE c
+     ->  Hash Semi Join  (cost=3615.91..140939.72 rows=16094 width=232) (actual time=449.577..2407.525 rows=1 loops=1)
+           Hash Cond: ((c_1.uuid)::text = (mv_2.checkpoint_uuid)::text)
+           ->  Append  (cost=3615.88..139863.42 rows=32187 width=316) (actual time=309.129..2396.499 rows=32174 loops=1)
+                 ->  Hash Left Join  (cost=3615.88..34727.77 rows=3612 width=2847) (actual time=309.128..476.332 rows=3632 loops=1)
+                       Hash Cond: (t.experiment_id = e.id)
+                       ->  Nested Loop Left Join  (cost=3248.14..34260.23 rows=3612 width=2287) (actual time=305.304..449.617 rows=3632 loops=1)
+                             Filter: ((s.archived IS NULL) OR ((NOT s.archived) AND (v.archived IS NULL)) OR (NOT v.archived))
+                             ->  Nested Loop Left Join  (cost=3247.71..7752.28 rows=3630 width=1052) (actual time=305.244..425.429 rows=3630 loops=1)
+                                   Join Filter: (((c_1.metadata ->> 'steps_completed'::text))::integer = v.total_batches)
+                                   Rows Removed by Join Filter: 45651
+                                   ->  Hash Left Join  (cost=3247.42..5301.63 rows=3630 width=917) (actual time=305.194..404.110 rows=3630 loops=1)
+                                         Hash Cond: (c_1.task_id = t.task_id)
+                                         ->  Seq Scan on checkpoints_v2 c_1  (cost=0.00..322.30 rows=3630 width=600) (actual time=0.001..2.188 rows=3630 loops=1)
+                                         ->  Hash  (cost=1798.63..1798.63 rows=25663 width=336) (actual time=304.016..304.017 rows=25630 loops=1)
+                                               Buckets: 16384  Batches: 4  Memory Usage: 2518kB
+                                               ->  Seq Scan on trials t  (cost=0.00..1798.63 rows=25663 width=336) (actual time=0.013..15.668 rows=25630 loops=1)
+                                   ->  Index Scan using ix_validations_trial_id on raw_validations v  (cost=0.29..0.62 rows=3 width=143) (actual time=0.001..0.003 rows=13 loops=3630)
+                                         Index Cond: (t.id = trial_id)
+                             ->  Index Scan using steps_trial_id_total_batches_run_id_unique on raw_steps s  (cost=0.43..7.29 rows=1 width=1245) (actual time=0.006..0.006 rows=1 loops=3630)
+                                   Index Cond: ((t.id = trial_id) AND (((c_1.metadata ->> 'steps_completed'::text))::integer = total_batches))
+                       ->  Hash  (cost=341.77..341.77 rows=2077 width=650) (actual time=2.787..2.788 rows=2071 loops=1)
+                             Buckets: 4096  Batches: 1  Memory Usage: 1412kB
+                             ->  Seq Scan on experiments e  (cost=0.00..341.77 rows=2077 width=650) (actual time=0.009..1.892 rows=2071 loops=1)
+                 ->  Subquery Scan on "*SELECT* 2"  (cost=9146.80..105099.53 rows=28575 width=2659) (actual time=698.029..1917.704 rows=28542 loops=1)
+                       ->  Gather  (cost=9146.80..104742.34 rows=28575 width=2655) (actual time=698.027..1913.516 rows=28542 loops=1)
+                             Workers Planned: 1
+                             Workers Launched: 1
+                             ->  Hash Left Join  (cost=8146.80..100502.45 rows=16809 width=2655) (actual time=704.063..1773.107 rows=14271 loops=2)
+                                   Hash Cond: (t_1.experiment_id = e_1.id)
+                                   ->  Nested Loop Left Join  (cost=7779.07..99544.21 rows=16809 width=2079) (actual time=701.945..1501.242 rows=14271 loops=2)
+                                         Filter: ((s_1.archived IS NULL) OR ((NOT s_1.archived) AND (v_1.archived IS NULL)) OR (NOT v_1.archived))
+                                         Rows Removed by Filter: 86
+                                         ->  Hash Left Join  (cost=7778.64..15940.92 rows=16891 width=844) (actual time=701.695..1379.012 rows=14357 loops=2)
+                                               Hash Cond: (c_2.trial_id = t_1.id)
+                                               ->  Hash Left Join  (cost=4531.23..9309.15 rows=16891 width=512) (actual time=363.144..672.478 rows=14357 loops=2)
+                                                     Hash Cond: ((c_2.trial_id = v_1.trial_id) AND (c_2.trial_run_id = v_1.trial_run_id) AND (c_2.total_batches = v_1.total_batches))
+                                                     ->  Parallel Seq Scan on raw_checkpoints c_2  (cost=0.00..1666.91 rows=16891 width=377) (actual time=0.204..9.046 rows=14357 loops=2)
+                                                     ->  Hash  (cost=2183.90..2183.90 rows=60190 width=147) (actual time=362.171..362.171 rows=60190 loops=2)
+                                                           Buckets: 32768  Batches: 4  Memory Usage: 2865kB
+                                                           ->  Seq Scan on raw_validations v_1  (cost=0.00..2183.90 rows=60190 width=147) (actual time=0.199..19.303 rows=60190 loops=2)
+                                               ->  Hash  (cost=1798.63..1798.63 rows=25663 width=336) (actual time=336.665..336.666 rows=25630 loops=2)
+                                                     Buckets: 16384  Batches: 4  Memory Usage: 2498kB
+                                                     ->  Seq Scan on trials t_1  (cost=0.00..1798.63 rows=25663 width=336) (actual time=0.275..8.600 rows=25630 loops=2)
+                                         ->  Index Scan using steps_trial_id_total_batches_run_id_unique on raw_steps s_1  (cost=0.43..4.94 rows=1 width=1249) (actual time=0.008..0.008 rows=1 loops=28714)
+                                               Index Cond: ((trial_id = t_1.id) AND (total_batches = c_2.total_batches) AND (trial_run_id = c_2.trial_run_id))
+                                   ->  Hash  (cost=341.77..341.77 rows=2077 width=650) (actual time=2.027..2.027 rows=2071 loops=2)
+                                         Buckets: 4096  Batches: 1  Memory Usage: 1416kB
+                                         ->  Seq Scan on experiments e_1  (cost=0.00..341.77 rows=2077 width=650) (actual time=0.210..1.050 rows=2071 loops=2)
+           ->  Hash  (cost=0.02..0.02 rows=1 width=16) (actual time=0.047..0.048 rows=1 loops=1)
+                 Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                 ->  CTE Scan on mv mv_2  (cost=0.00..0.02 rows=1 width=16) (actual time=0.019..0.027 rows=1 loops=1)
+   ->  CTE Scan on m  (cost=0.00..0.02 rows=1 width=24) (actual time=0.122..0.123 rows=1 loops=1)
+   ->  Hash Join  (cost=0.03..423.30 rows=80 width=276) (actual time=449.605..2401.615 rows=1 loops=1)
+         Hash Cond: (c.uuid = (mv.checkpoint_uuid)::text)
+         ->  CTE Scan on c  (cost=0.00..321.88 rows=16094 width=88) (actual time=449.586..2401.594 rows=1 loops=1)
+         ->  Hash  (cost=0.02..0.02 rows=1 width=236) (actual time=0.005..0.005 rows=1 loops=1)
+               Buckets: 1024  Batches: 1  Memory Usage: 9kB
+               ->  CTE Scan on mv  (cost=0.00..0.02 rows=1 width=236) (actual time=0.001..0.002 rows=1 loops=1)
+ Planning time: 19.210 ms
+ Execution time: 2408.253 ms
+(90 rows)
+
